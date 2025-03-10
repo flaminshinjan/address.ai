@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  # User Service
+  user-service:
+    build:
+      context: ./services/user
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - DB_HOST=user-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=user_db
+      - JWT_SECRET=your_jwt_secret_key
+      - SERVICE_PORT=8081
+    depends_on:
+      - user-db
+    networks:
+      - hotel-network
+
+  user-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=user_db
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+    networks:
+      - hotel-network
+
+  # Room Management Service
+  room-service:
+    build:
+      context: ./services/room
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      - DB_HOST=room-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=room_db
+      - JWT_SECRET=your_jwt_secret_key
+      - SERVICE_PORT=8082
+      - USER_SERVICE_URL=http://user-service:8081
+    depends_on:
+      - room-db
+      - user-service
+    networks:
+      - hotel-network
+
+  room-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=room_db
+    volumes:
+      - room-db-data:/var/lib/postgresql/data
+    networks:
+      - hotel-network
+
+  # Food Management Service
+  food-service:
+    build:
+      context: ./services/food
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - DB_HOST=food-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=food_db
+      - JWT_SECRET=your_jwt_secret_key
+      - SERVICE_PORT=8083
+      - USER_SERVICE_URL=http://user-service:8081
+    depends_on:
+      - food-db
+      - user-service
+    networks:
+      - hotel-network
+
+  food-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=food_db
+    volumes:
+      - food-db-data:/var/lib/postgresql/data
+    networks:
+      - hotel-network
+
+  # Supply Chain Service
+  supply-service:
+    build:
+      context: ./services/supply
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      - DB_HOST=supply-db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=supply_db
+      - JWT_SECRET=your_jwt_secret_key
+      - SERVICE_PORT=8084
+      - USER_SERVICE_URL=http://user-service:8081
+    depends_on:
+      - supply-db
+      - user-service
+    networks:
+      - hotel-network
+
+  supply-db:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=supply_db
+    volumes:
+      - supply-db-data:/var/lib/postgresql/data
+    networks:
+      - hotel-network
+
+networks:
+  hotel-network:
+    driver: bridge
+
+volumes:
+  user-db-data:
+  room-db-data:
+  food-db-data:
+  supply-db-data: 
