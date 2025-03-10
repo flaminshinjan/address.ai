@@ -1,19 +1,18 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"net/http"
+	"os"
 	"path/filepath"
 
-	"github.com/gorilla/mux"
-	"github.com/rs/cors"
-	httpSwagger "github.com/swaggo/http-swagger"
-	"github.com/flaminshinjan/address.ai/pkg/common/config"
 	"github.com/flaminshinjan/address.ai/pkg/common/db"
+	"github.com/flaminshinjan/address.ai/pkg/common/logger"
 	"github.com/flaminshinjan/address.ai/services/user/internal/handler"
 	"github.com/flaminshinjan/address.ai/services/user/internal/repository"
 	"github.com/flaminshinjan/address.ai/services/user/internal/service"
+	"github.com/joho/godotenv"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 // @title User Service API
@@ -36,14 +35,34 @@ import (
 // @in header
 // @name Authorization
 func main() {
-	// Load configuration
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+	// Load environment variables
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables")
 	}
 
-	// Connect to database
-	database, err := db.Connect(cfg.GetDBConnString())
+	// Get environment variables
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8081" // Default port for user service
+	}
+
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		log.Fatal("DATABASE_URL environment variable is required")
+	}
+
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "info" // Default log level
+	}
+
+	// Initialize database connection
+	database, err := db.Connect(dbURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
@@ -55,36 +74,39 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	// Initialize repository
+	// Initialize repositories
 	userRepo := repository.NewUserRepository(database)
 
-	// Initialize service
-	userService := service.NewUserService(userRepo, cfg.JWTSecret)
+	// Initialize services
+	userService := service.NewUserService(userRepo, jwtSecret)
 
-	// Initialize handler
-	userHandler := handler.NewUserHandler(userService, cfg.JWTSecret)
+	// Initialize Echo
+	e := echo.New()
+	e.HideBanner = false
 
-	// Initialize router
-	router := mux.NewRouter()
+	// Configure logger
+	logger.Configure(e)
+	logger.SetLogLevel(e, logLevel)
+
+	// Middleware
+	e.Use(middleware.Recover())
+	e.Use(middleware.CORS())
+
+	// Initialize handlers
+	userHandler := handler.NewUserHandler(userService, jwtSecret)
 
 	// Register routes
-	userHandler.RegisterRoutes(router)
+	api := e.Group("/api/v1")
+	userHandler.RegisterRoutes(api)
 
-	// Swagger documentation
-	router.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
-
-	// CORS
-	corsHandler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
-	}).Handler(router)
+	// Health check endpoint
+	e.GET("/health", func(c echo.Context) error {
+		return c.String(200, "User service is healthy")
+	})
 
 	// Start server
-	port := fmt.Sprintf(":%d", cfg.ServicePort)
 	log.Printf("User service starting on port %s", port)
-	if err := http.ListenAndServe(port, corsHandler); err != nil {
+	if err := e.Start(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

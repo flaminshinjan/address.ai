@@ -1,15 +1,13 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/flaminshinjan/address.ai/pkg/common/auth"
-	"github.com/flaminshinjan/address.ai/pkg/common/response"
 	"github.com/flaminshinjan/address.ai/services/user/internal/model"
 	"github.com/flaminshinjan/address.ai/services/user/internal/service"
+	"github.com/labstack/echo/v4"
 )
 
 // UserHandler handles HTTP requests for users
@@ -37,25 +35,29 @@ func NewUserHandler(service *service.UserService, jwtSecret string) *UserHandler
 // @Failure 400 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /register [post]
-func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var reg model.UserRegistration
-	if err := json.NewDecoder(r.Body).Decode(&reg); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
+func (h *UserHandler) Register(c echo.Context) error {
+	var req model.UserRegistration
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
-	user, token, err := h.service.Register(reg)
+	user, token, err := h.service.Register(req)
 	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	responseData := map[string]interface{}{
-		"user":  user,
-		"token": token,
-	}
-
-	response.Created(w, "User registered successfully", responseData)
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"success": true,
+		"message": "User registered successfully",
+		"data":    user,
+		"token":   token,
+	})
 }
 
 // Login handles user login
@@ -69,25 +71,29 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /login [post]
-func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var login model.UserLogin
-	if err := json.NewDecoder(r.Body).Decode(&login); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
+func (h *UserHandler) Login(c echo.Context) error {
+	var req model.UserLogin
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
-	user, token, err := h.service.Login(login)
+	user, token, err := h.service.Login(req)
 	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	responseData := map[string]interface{}{
-		"user":  user,
-		"token": token,
-	}
-
-	response.Success(w, "User logged in successfully", responseData)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Login successful",
+		"data":    user,
+		"token":   token,
+	})
 }
 
 // GetProfile handles getting the user's profile
@@ -101,17 +107,22 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /profile [get]
-func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	// Extract user ID from context (set by auth middleware)
-	userID := r.Context().Value("user_id").(string)
+func (h *UserHandler) GetProfile(c echo.Context) error {
+	userID := c.Get("user_id").(string)
 
 	user, err := h.service.GetByID(userID)
 	if err != nil {
-		response.NotFound(w, "User not found")
-		return
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "User not found",
+		})
 	}
 
-	response.Success(w, "User profile retrieved successfully", user)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Profile retrieved successfully",
+		"data":    user,
+	})
 }
 
 // UpdateProfile handles updating the user's profile
@@ -127,26 +138,31 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /profile [put]
-func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	// Extract user ID from context (set by auth middleware)
-	userID := r.Context().Value("user_id").(string)
+func (h *UserHandler) UpdateProfile(c echo.Context) error {
+	userID := c.Get("user_id").(string)
 
 	var user model.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
+	if err := c.Bind(&user); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
-	// Ensure user ID matches
 	user.ID = userID
-
 	updatedUser, err := h.service.Update(userID, user)
 	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Success(w, "User profile updated successfully", updatedUser)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Profile updated successfully",
+		"data":    updatedUser,
+	})
 }
 
 // UpdatePassword handles updating the user's password
@@ -162,34 +178,40 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /profile/password [put]
-func (h *UserHandler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
-	// Extract user ID from context (set by auth middleware)
-	userID := r.Context().Value("user_id").(string)
+func (h *UserHandler) UpdatePassword(c echo.Context) error {
+	userID := c.Get("user_id").(string)
 
-	var passwords map[string]string
-	if err := json.NewDecoder(r.Body).Decode(&passwords); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
+	var req struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
 	}
 
-	currentPassword, ok := passwords["current_password"]
-	if !ok {
-		response.BadRequest(w, "Current password is required")
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
-	newPassword, ok := passwords["new_password"]
-	if !ok {
-		response.BadRequest(w, "New password is required")
-		return
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Current password and new password are required",
+		})
 	}
 
-	if err := h.service.UpdatePassword(userID, currentPassword, newPassword); err != nil {
-		response.BadRequest(w, err.Error())
-		return
+	err := h.service.UpdatePassword(userID, req.CurrentPassword, req.NewPassword)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Success(w, "Password updated successfully", nil)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Password updated successfully",
+	})
 }
 
 // GetUser handles getting a user by ID
@@ -205,17 +227,29 @@ func (h *UserHandler) UpdatePassword(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /users/{id} [get]
-func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	user, err := h.service.GetByID(id)
-	if err != nil {
-		response.NotFound(w, "User not found")
-		return
+func (h *UserHandler) GetUser(c echo.Context) error {
+	role := c.Get("role").(string)
+	if role != "admin" {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
 	}
 
-	response.Success(w, "User retrieved successfully", user)
+	id := c.Param("id")
+	user, err := h.service.GetByID(id)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "User not found",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "User retrieved successfully",
+		"data":    user,
+	})
 }
 
 // ListUsers handles listing all users
@@ -231,10 +265,17 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /users [get]
-func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
-	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
+func (h *UserHandler) ListUsers(c echo.Context) error {
+	role := c.Get("role").(string)
+	if role != "admin" {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
+	}
+
+	limitStr := c.QueryParam("limit")
+	offsetStr := c.QueryParam("offset")
 
 	limit := 10 // Default limit
 	if limitStr != "" {
@@ -254,11 +295,17 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 	users, err := h.service.List(limit, offset)
 	if err != nil {
-		response.InternalServerError(w, err)
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Failed to retrieve users",
+		})
 	}
 
-	response.Success(w, "Users retrieved successfully", users)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Users retrieved successfully",
+		"data":    users,
+	})
 }
 
 // DeleteUser handles deleting a user
@@ -274,48 +321,78 @@ func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /users/{id} [delete]
-func (h *UserHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	if err := h.service.Delete(id); err != nil {
-		response.NotFound(w, "User not found")
-		return
+func (h *UserHandler) DeleteUser(c echo.Context) error {
+	role := c.Get("role").(string)
+	if role != "admin" {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
 	}
 
-	response.Success(w, "User deleted successfully", nil)
+	id := c.Param("id")
+	if err := h.service.Delete(id); err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "User not found",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "User deleted successfully",
+	})
 }
 
 // RegisterRoutes registers the routes for the user handler
-func (h *UserHandler) RegisterRoutes(router *mux.Router) {
+func (h *UserHandler) RegisterRoutes(g *echo.Group) {
 	// Public routes
-	router.HandleFunc("/register", h.Register).Methods("POST")
-	router.HandleFunc("/login", h.Login).Methods("POST")
+	g.POST("/auth/register", h.Register)
+	g.POST("/auth/login", h.Login)
 
 	// Protected routes
-	protected := router.PathPrefix("").Subrouter()
-	protected.Use(func(next http.Handler) http.Handler {
-		return auth.Middleware(h.jwtSecret, next)
-	})
+	users := g.Group("/users")
+	users.Use(h.authMiddleware)
 
-	protected.HandleFunc("/profile", h.GetProfile).Methods("GET")
-	protected.HandleFunc("/profile", h.UpdateProfile).Methods("PUT")
-	protected.HandleFunc("/profile/password", h.UpdatePassword).Methods("PUT")
+	users.GET("/profile", h.GetProfile)
+	users.PUT("/profile", h.UpdateProfile)
+	users.PUT("/password", h.UpdatePassword)
 
 	// Admin routes
-	adminRouter := protected.PathPrefix("/users").Subrouter()
-	adminRouter.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			role := r.Context().Value("role").(string)
-			if role != "admin" {
-				response.Forbidden(w, "Admin access required")
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
+	users.GET("", h.ListUsers)
+	users.GET("/:id", h.GetUser)
+	users.DELETE("/:id", h.DeleteUser)
+}
 
-	adminRouter.HandleFunc("", h.ListUsers).Methods("GET")
-	adminRouter.HandleFunc("/{id}", h.GetUser).Methods("GET")
-	adminRouter.HandleFunc("/{id}", h.DeleteUser).Methods("DELETE")
+// authMiddleware is a middleware to check if the user is authenticated
+func (h *UserHandler) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		token := c.Request().Header.Get("Authorization")
+		if token == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Authorization token is required",
+			})
+		}
+
+		// Remove "Bearer " prefix if present
+		if len(token) > 7 && token[:7] == "Bearer " {
+			token = token[7:]
+		}
+
+		claims, err := auth.ValidateToken(token, h.jwtSecret)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Invalid or expired token",
+			})
+		}
+
+		// Set user info in context
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("role", claims.Role)
+
+		return next(c)
+	}
 }
