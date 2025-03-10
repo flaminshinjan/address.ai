@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/yourusername/hotel-management/services/food/internal/model"
+	"github.com/flaminshinjan/address.ai/services/food/internal/model"
 )
 
 // OrderRepository handles database operations for food orders

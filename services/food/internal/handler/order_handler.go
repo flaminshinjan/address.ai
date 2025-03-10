@@ -6,10 +6,10 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/yourusername/hotel-management/pkg/common/auth"
-	"github.com/yourusername/hotel-management/pkg/common/response"
-	"github.com/yourusername/hotel-management/services/food/internal/model"
-	"github.com/yourusername/hotel-management/services/food/internal/service"
+	"github.com/flaminshinjan/address.ai/pkg/common/auth"
+	"github.com/flaminshinjan/address.ai/pkg/common/response"
+	"github.com/flaminshinjan/address.ai/services/food/internal/model"
+	"github.com/flaminshinjan/address.ai/services/food/internal/service"
 )
 
 // OrderHandler handles HTTP requests for food orders

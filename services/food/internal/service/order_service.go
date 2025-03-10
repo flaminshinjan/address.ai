@@ -3,8 +3,8 @@ package service
 import (
 	"errors"
 
-	"github.com/yourusername/hotel-management/services/food/internal/model"
-	"github.com/yourusername/hotel-management/services/food/internal/repository"
+	"github.com/flaminshinjan/address.ai/services/food/internal/model"
+	"github.com/flaminshinjan/address.ai/services/food/internal/repository"
 )
 
 // OrderService handles business logic for food orders

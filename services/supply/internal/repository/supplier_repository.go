@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/yourusername/hotel-management/services/supply/internal/model"
+	"github.com/flaminshinjan/address.ai/services/supply/internal/model"
 )
 
 // SupplierRepository handles database operations for suppliers

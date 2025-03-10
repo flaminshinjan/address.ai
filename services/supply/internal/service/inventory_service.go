@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/yourusername/hotel-management/services/supply/internal/model"
-	"github.com/yourusername/hotel-management/services/supply/internal/repository"
+	"github.com/flaminshinjan/address.ai/services/supply/internal/model"
+	"github.com/flaminshinjan/address.ai/services/supply/internal/repository"
 )
 
 // InventoryService handles business logic for inventory items

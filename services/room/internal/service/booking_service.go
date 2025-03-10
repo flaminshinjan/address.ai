@@ -5,8 +5,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/yourusername/hotel-management/services/room/internal/model"
-	"github.com/yourusername/hotel-management/services/room/internal/repository"
+	"github.com/flaminshinjan/address.ai/services/room/internal/model"
+	"github.com/flaminshinjan/address.ai/services/room/internal/repository"
 )
 
 // BookingService handles business logic for bookings

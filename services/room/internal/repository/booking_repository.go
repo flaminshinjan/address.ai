@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/yourusername/hotel-management/services/room/internal/model"
+	"github.com/flaminshinjan/address.ai/services/room/internal/model"
 )
 
 // BookingRepository handles database operations for bookings

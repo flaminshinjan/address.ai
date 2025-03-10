@@ -11,10 +11,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
-	"github.com/yourusername/hotel-management/pkg/common/database"
-	"github.com/yourusername/hotel-management/services/supply/internal/handler"
-	"github.com/yourusername/hotel-management/services/supply/internal/repository"
-	"github.com/yourusername/hotel-management/services/supply/internal/service"
+	"github.com/flaminshinjan/address.ai/pkg/common/db"
+	"github.com/flaminshinjan/address.ai/services/supply/internal/handler"
+	"github.com/flaminshinjan/address.ai/services/supply/internal/repository"
+	"github.com/flaminshinjan/address.ai/services/supply/internal/service"
 )
 
 func main() {
@@ -40,7 +40,7 @@ func main() {
 	}
 
 	// Initialize database connection
-	db, err := database.NewPostgresDB(dbURL)
+	db, err := db.Connect(dbURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/yourusername/hotel-management/services/room/internal/model"
-	"github.com/yourusername/hotel-management/services/room/internal/repository"
+	"github.com/flaminshinjan/address.ai/services/room/internal/model"
+	"github.com/flaminshinjan/address.ai/services/room/internal/repository"
 )
 
 // RoomService handles business logic for rooms

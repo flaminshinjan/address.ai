@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/yourusername/hotel-management/services/food/internal/model"
-	"github.com/yourusername/hotel-management/services/food/internal/repository"
+	"github.com/flaminshinjan/address.ai/services/food/internal/model"
+	"github.com/flaminshinjan/address.ai/services/food/internal/repository"
 )
 
 // MenuService handles business logic for menu items

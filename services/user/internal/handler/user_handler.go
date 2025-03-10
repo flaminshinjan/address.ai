@@ -6,10 +6,10 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/yourusername/hotel-management/pkg/common/auth"
-	"github.com/yourusername/hotel-management/pkg/common/response"
-	"github.com/yourusername/hotel-management/services/user/internal/model"
-	"github.com/yourusername/hotel-management/services/user/internal/service"
+	"github.com/flaminshinjan/address.ai/pkg/common/auth"
+	"github.com/flaminshinjan/address.ai/pkg/common/response"
+	"github.com/flaminshinjan/address.ai/services/user/internal/model"
+	"github.com/flaminshinjan/address.ai/services/user/internal/service"
 )
 
 // UserHandler handles HTTP requests for users

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/yourusername/hotel-management/pkg/common/auth"
-	"github.com/yourusername/hotel-management/services/user/internal/model"
-	"github.com/yourusername/hotel-management/services/user/internal/repository"
+	"github.com/flaminshinjan/address.ai/pkg/common/auth"
+	"github.com/flaminshinjan/address.ai/services/user/internal/model"
+	"github.com/flaminshinjan/address.ai/services/user/internal/repository"
 )
 
 // UserService handles business logic for users

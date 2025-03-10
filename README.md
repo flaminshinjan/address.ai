@@ -1,4 +1,4 @@
-# AI Hotel Management System
+# Address.AI - AI Hotel Management System
 
 This is a microservice-based hotel management system built with Go, Docker, and PostgreSQL.
 

@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/yourusername/hotel-management/pkg/common/auth"
-	"github.com/yourusername/hotel-management/pkg/common/response"
-	"github.com/yourusername/hotel-management/services/room/internal/model"
-	"github.com/yourusername/hotel-management/services/room/internal/service"
+	"github.com/flaminshinjan/address.ai/pkg/common/auth"
+	"github.com/flaminshinjan/address.ai/pkg/common/response"
+	"github.com/flaminshinjan/address.ai/services/room/internal/model"
+	"github.com/flaminshinjan/address.ai/services/room/internal/service"
 )
 
 // RoomHandler handles HTTP requests for rooms

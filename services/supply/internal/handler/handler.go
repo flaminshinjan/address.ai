@@ -2,7 +2,7 @@ package handler
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/yourusername/hotel-management/services/supply/internal/service"
+	"github.com/flaminshinjan/address.ai/services/supply/internal/service"
 )
 
 // Handler is the main handler for the supply microservice

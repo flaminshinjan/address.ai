@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/yourusername/hotel-management/services/user/internal/model"
+	"github.com/flaminshinjan/address.ai/services/user/internal/model"
 )
 
 // UserRepository handles database operations for users

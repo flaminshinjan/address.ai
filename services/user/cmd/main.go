@@ -9,11 +9,11 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	httpSwagger "github.com/swaggo/http-swagger"
-	"github.com/yourusername/hotel-management/pkg/common/config"
-	"github.com/yourusername/hotel-management/pkg/common/db"
-	"github.com/yourusername/hotel-management/services/user/internal/handler"
-	"github.com/yourusername/hotel-management/services/user/internal/repository"
-	"github.com/yourusername/hotel-management/services/user/internal/service"
+	"github.com/flaminshinjan/address.ai/pkg/common/config"
+	"github.com/flaminshinjan/address.ai/pkg/common/db"
+	"github.com/flaminshinjan/address.ai/services/user/internal/handler"
+	"github.com/flaminshinjan/address.ai/services/user/internal/repository"
+	"github.com/flaminshinjan/address.ai/services/user/internal/service"
 )
 
 // @title User Service API

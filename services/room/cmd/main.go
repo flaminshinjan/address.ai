@@ -9,11 +9,11 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	httpSwagger "github.com/swaggo/http-swagger"
-	"github.com/yourusername/hotel-management/pkg/common/config"
-	"github.com/yourusername/hotel-management/pkg/common/db"
-	"github.com/yourusername/hotel-management/services/room/internal/handler"
-	"github.com/yourusername/hotel-management/services/room/internal/repository"
-	"github.com/yourusername/hotel-management/services/room/internal/service"
+	"github.com/flaminshinjan/address.ai/pkg/common/config"
+	"github.com/flaminshinjan/address.ai/pkg/common/db"
+	"github.com/flaminshinjan/address.ai/services/room/internal/handler"
+	"github.com/flaminshinjan/address.ai/services/room/internal/repository"
+	"github.com/flaminshinjan/address.ai/services/room/internal/service"
 )
 
 // @title Room Management Service API

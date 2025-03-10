@@ -6,10 +6,10 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/yourusername/hotel-management/pkg/common/auth"
-	"github.com/yourusername/hotel-management/pkg/common/response"
-	"github.com/yourusername/hotel-management/services/supply/internal/model"
-	"github.com/yourusername/hotel-management/services/supply/internal/service"
+	"github.com/flaminshinjan/address.ai/pkg/common/auth"
+	"github.com/flaminshinjan/address.ai/pkg/common/response"
+	"github.com/flaminshinjan/address.ai/services/supply/internal/model"
+	"github.com/flaminshinjan/address.ai/services/supply/internal/service"
 )
 
 // PurchaseHandler handles HTTP requests for purchase orders
