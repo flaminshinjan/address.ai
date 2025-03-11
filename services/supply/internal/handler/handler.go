@@ -2,7 +2,7 @@ package handler
 
 import (
 	"github.com/flaminshinjan/address.ai/services/supply/internal/service"
-	"github.com/gorilla/mux"
+	"github.com/labstack/echo/v4"
 )
 
 // Handler is the main handler for the supply microservice
@@ -27,13 +27,13 @@ func NewHandler(
 }
 
 // RegisterRoutes registers all routes for the supply microservice
-func (h *Handler) RegisterRoutes(router *mux.Router) {
+func (h *Handler) RegisterRoutes(g *echo.Group) {
 	// Register supplier routes
-	h.SupplierHandler.RegisterRoutes(router)
+	h.SupplierHandler.RegisterRoutes(g)
 
 	// Register inventory routes
-	h.InventoryHandler.RegisterRoutes(router)
+	h.InventoryHandler.RegisterRoutes(g)
 
 	// Register purchase routes
-	h.PurchaseHandler.RegisterRoutes(router)
+	h.PurchaseHandler.RegisterRoutes(g)
 }

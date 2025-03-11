@@ -1,401 +1,339 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/flaminshinjan/address.ai/pkg/common/auth"
-	"github.com/flaminshinjan/address.ai/pkg/common/response"
 	"github.com/flaminshinjan/address.ai/services/supply/internal/model"
 	"github.com/flaminshinjan/address.ai/services/supply/internal/service"
-	"github.com/gorilla/mux"
+	"github.com/labstack/echo/v4"
 )
 
 // InventoryHandler handles HTTP requests for inventory items
 type InventoryHandler struct {
-	inventoryService *service.InventoryService
-	jwtSecret        string
+	service   *service.InventoryService
+	jwtSecret string
 }
 
 // NewInventoryHandler creates a new InventoryHandler
-func NewInventoryHandler(inventoryService *service.InventoryService, jwtSecret string) *InventoryHandler {
+func NewInventoryHandler(service *service.InventoryService, jwtSecret string) *InventoryHandler {
 	return &InventoryHandler{
-		inventoryService: inventoryService,
-		jwtSecret:        jwtSecret,
+		service:   service,
+		jwtSecret: jwtSecret,
 	}
-}
-
-// CreateInventoryItem handles creating a new inventory item
-// @Summary Create a new inventory item
-// @Description Create a new inventory item with the provided details
-// @Tags inventory
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param item body model.InventoryItem true "Inventory Item"
-// @Success 201 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /inventory [post]
-func (h *InventoryHandler) CreateInventoryItem(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
-
-	var item model.InventoryItem
-	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
-	}
-
-	createdItem, err := h.inventoryService.CreateInventoryItem(item)
-	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
-	}
-
-	response.Created(w, "Inventory item created successfully", createdItem)
-}
-
-// GetInventoryItem handles getting an inventory item by ID
-// @Summary Get an inventory item by ID
-// @Description Get an inventory item by its ID
-// @Tags inventory
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Inventory Item ID"
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /inventory/{id} [get]
-func (h *InventoryHandler) GetInventoryItem(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	item, err := h.inventoryService.GetInventoryItemByID(id)
-	if err != nil {
-		response.NotFound(w, "Inventory item not found")
-		return
-	}
-
-	response.Success(w, "Inventory item retrieved successfully", item)
-}
-
-// UpdateInventoryItem handles updating an inventory item
-// @Summary Update an inventory item
-// @Description Update an inventory item with the provided details
-// @Tags inventory
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Inventory Item ID"
-// @Param item body model.InventoryItem true "Inventory Item"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /inventory/{id} [put]
-func (h *InventoryHandler) UpdateInventoryItem(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
-
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	var item model.InventoryItem
-	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
-	}
-
-	updatedItem, err := h.inventoryService.UpdateInventoryItem(id, item)
-	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
-	}
-
-	response.Success(w, "Inventory item updated successfully", updatedItem)
-}
-
-// UpdateInventoryQuantity handles updating an inventory item's quantity
-// @Summary Update inventory quantity
-// @Description Update an inventory item's quantity
-// @Tags inventory
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Inventory Item ID"
-// @Param quantity body map[string]interface{} true "Quantity Update"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /inventory/{id}/quantity [put]
-func (h *InventoryHandler) UpdateInventoryQuantity(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
-
-	// Get user ID from context
-	userID := r.Context().Value("user_id").(string)
-
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	var data map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
-	}
-
-	quantityFloat, ok := data["quantity"].(float64)
-	if !ok {
-		response.BadRequest(w, "Quantity is required and must be a number")
-		return
-	}
-
-	quantity := int(quantityFloat)
-	notes, _ := data["notes"].(string)
-
-	if err := h.inventoryService.UpdateInventoryQuantity(id, quantity, userID, notes); err != nil {
-		response.BadRequest(w, err.Error())
-		return
-	}
-
-	response.Success(w, "Inventory quantity updated successfully", nil)
-}
-
-// DeleteInventoryItem handles deleting an inventory item
-// @Summary Delete an inventory item
-// @Description Delete an inventory item by its ID
-// @Tags inventory
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Inventory Item ID"
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /inventory/{id} [delete]
-func (h *InventoryHandler) DeleteInventoryItem(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
-
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	if err := h.inventoryService.DeleteInventoryItem(id); err != nil {
-		response.NotFound(w, "Inventory item not found")
-		return
-	}
-
-	response.Success(w, "Inventory item deleted successfully", nil)
-}
-
-// ListInventoryItems handles listing all inventory items
-// @Summary List all inventory items
-// @Description List all inventory items with pagination
-// @Tags inventory
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /inventory [get]
-func (h *InventoryHandler) ListInventoryItems(w http.ResponseWriter, r *http.Request) {
-	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-
-	limit := 10 // Default limit
-	if limitStr != "" {
-		parsedLimit, err := strconv.Atoi(limitStr)
-		if err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
-
-	offset := 0 // Default offset
-	if offsetStr != "" {
-		parsedOffset, err := strconv.Atoi(offsetStr)
-		if err == nil && parsedOffset >= 0 {
-			offset = parsedOffset
-		}
-	}
-
-	items, err := h.inventoryService.ListInventoryItems(limit, offset)
-	if err != nil {
-		response.InternalServerError(w, err)
-		return
-	}
-
-	response.Success(w, "Inventory items retrieved successfully", items)
-}
-
-// ListInventoryItemsByCategory handles listing inventory items by category
-// @Summary List inventory items by category
-// @Description List inventory items by category with pagination
-// @Tags inventory
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param category path string true "Category"
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /inventory/category/{category} [get]
-func (h *InventoryHandler) ListInventoryItemsByCategory(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	category := vars["category"]
-
-	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-
-	limit := 10 // Default limit
-	if limitStr != "" {
-		parsedLimit, err := strconv.Atoi(limitStr)
-		if err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
-
-	offset := 0 // Default offset
-	if offsetStr != "" {
-		parsedOffset, err := strconv.Atoi(offsetStr)
-		if err == nil && parsedOffset >= 0 {
-			offset = parsedOffset
-		}
-	}
-
-	items, err := h.inventoryService.ListInventoryItemsByCategory(category, limit, offset)
-	if err != nil {
-		response.InternalServerError(w, err)
-		return
-	}
-
-	response.Success(w, "Inventory items retrieved successfully", items)
-}
-
-// ListLowStockItems handles listing inventory items with quantity below min_quantity
-// @Summary List low stock items
-// @Description List inventory items with quantity below min_quantity with pagination
-// @Tags inventory
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /inventory/low-stock [get]
-func (h *InventoryHandler) ListLowStockItems(w http.ResponseWriter, r *http.Request) {
-	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-
-	limit := 10 // Default limit
-	if limitStr != "" {
-		parsedLimit, err := strconv.Atoi(limitStr)
-		if err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
-
-	offset := 0 // Default offset
-	if offsetStr != "" {
-		parsedOffset, err := strconv.Atoi(offsetStr)
-		if err == nil && parsedOffset >= 0 {
-			offset = parsedOffset
-		}
-	}
-
-	items, err := h.inventoryService.ListLowStockItems(limit, offset)
-	if err != nil {
-		response.InternalServerError(w, err)
-		return
-	}
-
-	response.Success(w, "Low stock items retrieved successfully", items)
-}
-
-// ListCategories handles listing all inventory categories
-// @Summary List all inventory categories
-// @Description List all inventory categories
-// @Tags inventory
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /inventory/categories [get]
-func (h *InventoryHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.inventoryService.ListCategories()
-	if err != nil {
-		response.InternalServerError(w, err)
-		return
-	}
-
-	response.Success(w, "Categories retrieved successfully", categories)
 }
 
 // RegisterRoutes registers the routes for the inventory handler
-func (h *InventoryHandler) RegisterRoutes(router *mux.Router) {
-	// Protected routes
-	protected := router.PathPrefix("/inventory").Subrouter()
-	protected.Use(func(next http.Handler) http.Handler {
-		return auth.Middleware(h.jwtSecret, next)
-	})
+func (h *InventoryHandler) RegisterRoutes(g *echo.Group) {
+	// Public routes
+	g.GET("/inventory", h.ListInventoryItems)
+	g.GET("/inventory/:id", h.GetInventoryItem)
+	g.GET("/inventory/categories", h.ListCategories)
+	g.GET("/inventory/category/:category", h.ListInventoryItemsByCategory)
+	g.GET("/inventory/low-stock", h.ListLowStockItems)
 
-	protected.HandleFunc("", h.ListInventoryItems).Methods("GET")
-	protected.HandleFunc("/categories", h.ListCategories).Methods("GET")
-	protected.HandleFunc("/category/{category}", h.ListInventoryItemsByCategory).Methods("GET")
-	protected.HandleFunc("/low-stock", h.ListLowStockItems).Methods("GET")
-	protected.HandleFunc("/{id}", h.GetInventoryItem).Methods("GET")
+	// Protected routes (admin only)
+	admin := g.Group("/admin/inventory")
+	admin.Use(h.authMiddleware)
 
-	// Admin routes
-	adminRouter := protected.PathPrefix("").Subrouter()
-	adminRouter.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			role := r.Context().Value("role").(string)
-			if role != "admin" {
-				response.Forbidden(w, "Admin access required")
-				return
-			}
-			next.ServeHTTP(w, r)
+	admin.POST("", h.CreateInventoryItem)
+	admin.PUT("/:id", h.UpdateInventoryItem)
+	admin.PUT("/:id/quantity", h.UpdateInventoryQuantity)
+	admin.DELETE("/:id", h.DeleteInventoryItem)
+}
+
+// CreateInventoryItem handles creating a new inventory item
+func (h *InventoryHandler) CreateInventoryItem(c echo.Context) error {
+	var item model.InventoryItem
+	if err := c.Bind(&item); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
 		})
-	})
+	}
 
-	adminRouter.HandleFunc("", h.CreateInventoryItem).Methods("POST")
-	adminRouter.HandleFunc("/{id}", h.UpdateInventoryItem).Methods("PUT")
-	adminRouter.HandleFunc("/{id}", h.DeleteInventoryItem).Methods("DELETE")
-	adminRouter.HandleFunc("/{id}/quantity", h.UpdateInventoryQuantity).Methods("PUT")
+	createdItem, err := h.service.CreateInventoryItem(item)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"success": true,
+		"message": "Inventory item created successfully",
+		"data":    createdItem,
+	})
+}
+
+// GetInventoryItem handles getting an inventory item by ID
+func (h *InventoryHandler) GetInventoryItem(c echo.Context) error {
+	id := c.Param("id")
+
+	item, err := h.service.GetInventoryItemByID(id)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "Inventory item not found",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Inventory item retrieved successfully",
+		"data":    item,
+	})
+}
+
+// UpdateInventoryItem handles updating an inventory item
+func (h *InventoryHandler) UpdateInventoryItem(c echo.Context) error {
+	id := c.Param("id")
+
+	var item model.InventoryItem
+	if err := c.Bind(&item); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
+	}
+
+	item.ID = id
+	updatedItem, err := h.service.UpdateInventoryItem(id, item)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Inventory item updated successfully",
+		"data":    updatedItem,
+	})
+}
+
+// UpdateInventoryQuantity handles updating an inventory item's quantity
+func (h *InventoryHandler) UpdateInventoryQuantity(c echo.Context) error {
+	id := c.Param("id")
+
+	var quantityData struct {
+		Quantity float64 `json:"quantity"`
+		Notes    string  `json:"notes"`
+	}
+
+	if err := c.Bind(&quantityData); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
+	}
+
+	// Get user ID from context
+	userID := c.Get("user_id").(string)
+
+	// Convert float64 to int for the service call
+	quantity := int(quantityData.Quantity)
+
+	if err := h.service.UpdateInventoryQuantity(id, quantity, userID, quantityData.Notes); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Inventory quantity updated successfully",
+	})
+}
+
+// DeleteInventoryItem handles deleting an inventory item
+func (h *InventoryHandler) DeleteInventoryItem(c echo.Context) error {
+	id := c.Param("id")
+
+	if err := h.service.DeleteInventoryItem(id); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Inventory item deleted successfully",
+	})
+}
+
+// ListInventoryItems handles listing all inventory items
+func (h *InventoryHandler) ListInventoryItems(c echo.Context) error {
+	// Get query parameters
+	limitStr := c.QueryParam("limit")
+	offsetStr := c.QueryParam("offset")
+
+	limit := 10 // Default limit
+	if limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	offset := 0 // Default offset
+	if offsetStr != "" {
+		parsedOffset, err := strconv.Atoi(offsetStr)
+		if err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	items, err := h.service.ListInventoryItems(limit, offset)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Failed to retrieve inventory items",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Inventory items retrieved successfully",
+		"data":    items,
+	})
+}
+
+// ListInventoryItemsByCategory handles listing inventory items by category
+func (h *InventoryHandler) ListInventoryItemsByCategory(c echo.Context) error {
+	category := c.Param("category")
+
+	// Get query parameters
+	limitStr := c.QueryParam("limit")
+	offsetStr := c.QueryParam("offset")
+
+	limit := 10 // Default limit
+	if limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	offset := 0 // Default offset
+	if offsetStr != "" {
+		parsedOffset, err := strconv.Atoi(offsetStr)
+		if err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	items, err := h.service.ListInventoryItemsByCategory(category, limit, offset)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Inventory items retrieved successfully",
+		"data":    items,
+	})
+}
+
+// ListLowStockItems handles listing inventory items with low stock
+func (h *InventoryHandler) ListLowStockItems(c echo.Context) error {
+	// Get query parameters
+	limitStr := c.QueryParam("limit")
+	offsetStr := c.QueryParam("offset")
+
+	limit := 10 // Default limit
+	if limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	offset := 0 // Default offset
+	if offsetStr != "" {
+		parsedOffset, err := strconv.Atoi(offsetStr)
+		if err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	items, err := h.service.ListLowStockItems(limit, offset)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Failed to retrieve low stock items",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Low stock items retrieved successfully",
+		"data":    items,
+	})
+}
+
+// ListCategories handles listing all inventory categories
+func (h *InventoryHandler) ListCategories(c echo.Context) error {
+	categories, err := h.service.ListCategories()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Failed to retrieve categories",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Categories retrieved successfully",
+		"data":    categories,
+	})
+}
+
+// authMiddleware is a middleware to check if the user is authenticated and is an admin
+func (h *InventoryHandler) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		token := c.Request().Header.Get("Authorization")
+		if token == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Authorization token is required",
+			})
+		}
+
+		// Remove "Bearer " prefix if present
+		if len(token) > 7 && token[:7] == "Bearer " {
+			token = token[7:]
+		}
+
+		claims, err := auth.ValidateToken(token, h.jwtSecret)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Invalid or expired token",
+			})
+		}
+
+		// Check if user is admin
+		if claims.Role != "admin" {
+			return c.JSON(http.StatusForbidden, map[string]interface{}{
+				"success": false,
+				"error":   "Admin access required",
+			})
+		}
+
+		// Set user info in context
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("role", claims.Role)
+
+		return next(c)
+	}
 }

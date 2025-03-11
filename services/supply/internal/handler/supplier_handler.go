@@ -1,15 +1,13 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/flaminshinjan/address.ai/pkg/common/auth"
-	"github.com/flaminshinjan/address.ai/pkg/common/response"
 	"github.com/flaminshinjan/address.ai/services/supply/internal/model"
 	"github.com/flaminshinjan/address.ai/services/supply/internal/service"
-	"github.com/gorilla/mux"
+	"github.com/labstack/echo/v4"
 )
 
 // SupplierHandler handles HTTP requests for suppliers
@@ -27,40 +25,25 @@ func NewSupplierHandler(service *service.SupplierService, jwtSecret string) *Sup
 }
 
 // RegisterRoutes registers the routes for the supplier handler
-func (h *SupplierHandler) RegisterRoutes(router *mux.Router) {
-	// Protected routes
-	protected := router.PathPrefix("/suppliers").Subrouter()
-	protected.Use(func(next http.Handler) http.Handler {
-		return auth.Middleware(h.jwtSecret, next)
-	})
+func (h *SupplierHandler) RegisterRoutes(g *echo.Group) {
+	// Public routes
+	g.GET("/suppliers", h.ListSuppliers)
+	g.GET("/suppliers/:id", h.GetSupplier)
 
-	protected.HandleFunc("", h.ListSuppliers).Methods("GET")
-	protected.HandleFunc("/active", h.ListActiveSuppliers).Methods("GET")
-	protected.HandleFunc("/{id}", h.GetSupplier).Methods("GET")
+	// Protected routes (admin only)
+	admin := g.Group("/admin/suppliers")
+	admin.Use(h.authMiddleware)
 
-	// Admin routes
-	adminRouter := protected.PathPrefix("").Subrouter()
-	adminRouter.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			role := r.Context().Value("role").(string)
-			if role != "admin" {
-				response.Forbidden(w, "Admin access required")
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
-
-	adminRouter.HandleFunc("", h.CreateSupplier).Methods("POST")
-	adminRouter.HandleFunc("/{id}", h.UpdateSupplier).Methods("PUT")
-	adminRouter.HandleFunc("/{id}", h.DeleteSupplier).Methods("DELETE")
+	admin.POST("", h.CreateSupplier)
+	admin.PUT("/:id", h.UpdateSupplier)
+	admin.DELETE("/:id", h.DeleteSupplier)
 }
 
 // ListSuppliers handles listing all suppliers
-func (h *SupplierHandler) ListSuppliers(w http.ResponseWriter, r *http.Request) {
+func (h *SupplierHandler) ListSuppliers(c echo.Context) error {
 	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
+	limitStr := c.QueryParam("limit")
+	offsetStr := c.QueryParam("offset")
 
 	limit := 10 // Default limit
 	if limitStr != "" {
@@ -80,126 +63,145 @@ func (h *SupplierHandler) ListSuppliers(w http.ResponseWriter, r *http.Request) 
 
 	suppliers, err := h.service.ListSuppliers(limit, offset)
 	if err != nil {
-		response.InternalServerError(w, err)
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Failed to retrieve suppliers",
+		})
 	}
 
-	response.Success(w, "Suppliers retrieved successfully", suppliers)
-}
-
-// ListActiveSuppliers handles listing all active suppliers
-func (h *SupplierHandler) ListActiveSuppliers(w http.ResponseWriter, r *http.Request) {
-	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-
-	limit := 10 // Default limit
-	if limitStr != "" {
-		parsedLimit, err := strconv.Atoi(limitStr)
-		if err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
-
-	offset := 0 // Default offset
-	if offsetStr != "" {
-		parsedOffset, err := strconv.Atoi(offsetStr)
-		if err == nil && parsedOffset >= 0 {
-			offset = parsedOffset
-		}
-	}
-
-	suppliers, err := h.service.ListActiveSuppliers(limit, offset)
-	if err != nil {
-		response.InternalServerError(w, err)
-		return
-	}
-
-	response.Success(w, "Active suppliers retrieved successfully", suppliers)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Suppliers retrieved successfully",
+		"data":    suppliers,
+	})
 }
 
 // GetSupplier handles getting a supplier by ID
-func (h *SupplierHandler) GetSupplier(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
+func (h *SupplierHandler) GetSupplier(c echo.Context) error {
+	id := c.Param("id")
 
 	supplier, err := h.service.GetSupplierByID(id)
 	if err != nil {
-		response.NotFound(w, "Supplier not found")
-		return
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "Supplier not found",
+		})
 	}
 
-	response.Success(w, "Supplier retrieved successfully", supplier)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Supplier retrieved successfully",
+		"data":    supplier,
+	})
 }
 
 // CreateSupplier handles creating a new supplier
-func (h *SupplierHandler) CreateSupplier(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
-
+func (h *SupplierHandler) CreateSupplier(c echo.Context) error {
 	var supplier model.Supplier
-	if err := json.NewDecoder(r.Body).Decode(&supplier); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
+	if err := c.Bind(&supplier); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
 	createdSupplier, err := h.service.CreateSupplier(supplier)
 	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Created(w, "Supplier created successfully", createdSupplier)
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"success": true,
+		"message": "Supplier created successfully",
+		"data":    createdSupplier,
+	})
 }
 
 // UpdateSupplier handles updating a supplier
-func (h *SupplierHandler) UpdateSupplier(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
-
-	vars := mux.Vars(r)
-	id := vars["id"]
+func (h *SupplierHandler) UpdateSupplier(c echo.Context) error {
+	id := c.Param("id")
 
 	var supplier model.Supplier
-	if err := json.NewDecoder(r.Body).Decode(&supplier); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
+	if err := c.Bind(&supplier); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
 	supplier.ID = id
 	updatedSupplier, err := h.service.UpdateSupplier(id, supplier)
 	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Success(w, "Supplier updated successfully", updatedSupplier)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Supplier updated successfully",
+		"data":    updatedSupplier,
+	})
 }
 
 // DeleteSupplier handles deleting a supplier
-func (h *SupplierHandler) DeleteSupplier(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
-
-	vars := mux.Vars(r)
-	id := vars["id"]
+func (h *SupplierHandler) DeleteSupplier(c echo.Context) error {
+	id := c.Param("id")
 
 	if err := h.service.DeleteSupplier(id); err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Success(w, "Supplier deleted successfully", nil)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Supplier deleted successfully",
+	})
+}
+
+// authMiddleware is a middleware to check if the user is authenticated and is an admin
+func (h *SupplierHandler) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		token := c.Request().Header.Get("Authorization")
+		if token == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Authorization token is required",
+			})
+		}
+
+		// Remove "Bearer " prefix if present
+		if len(token) > 7 && token[:7] == "Bearer " {
+			token = token[7:]
+		}
+
+		claims, err := auth.ValidateToken(token, h.jwtSecret)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Invalid or expired token",
+			})
+		}
+
+		// Check if user is admin
+		if claims.Role != "admin" {
+			return c.JSON(http.StatusForbidden, map[string]interface{}{
+				"success": false,
+				"error":   "Admin access required",
+			})
+		}
+
+		// Set user info in context
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("role", claims.Role)
+
+		return next(c)
+	}
 }

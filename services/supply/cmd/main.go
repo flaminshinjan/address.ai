@@ -2,17 +2,17 @@ package main
 
 import (
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/flaminshinjan/address.ai/pkg/common/db"
+	"github.com/flaminshinjan/address.ai/pkg/common/logger"
 	"github.com/flaminshinjan/address.ai/services/supply/internal/handler"
 	"github.com/flaminshinjan/address.ai/services/supply/internal/repository"
 	"github.com/flaminshinjan/address.ai/services/supply/internal/service"
-	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
-	"github.com/rs/cors"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
@@ -50,7 +50,7 @@ func main() {
 	defer database.Close()
 
 	// Run migrations
-	migrationsPath := filepath.Join("migrations")
+	migrationsPath := filepath.Join("services", "supply", "migrations")
 	if err := db.RunMigrations(database, migrationsPath); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
@@ -65,33 +65,33 @@ func main() {
 	inventoryService := service.NewInventoryService(inventoryRepo)
 	purchaseService := service.NewPurchaseService(purchaseRepo, supplierRepo, inventoryRepo)
 
-	// Initialize router
-	router := mux.NewRouter()
+	// Initialize Echo
+	e := echo.New()
+	e.HideBanner = false
+
+	// Configure logger
+	logger.Configure(e)
+	logger.SetLogLevel(e, logLevel)
+
+	// Middleware
+	e.Use(middleware.Recover())
+	e.Use(middleware.CORS())
 
 	// Initialize handlers
 	h := handler.NewHandler(supplierService, inventoryService, purchaseService, jwtSecret)
 
-	// Register API routes
-	apiRouter := router.PathPrefix("/api/v1").Subrouter()
-	h.RegisterRoutes(apiRouter)
+	// Register routes
+	api := e.Group("/api/v1")
+	h.RegisterRoutes(api)
 
-	// Add health check endpoint
-	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Supply service is healthy"))
-	}).Methods("GET")
-
-	// CORS
-	corsHandler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
-	}).Handler(router)
+	// Health check endpoint
+	e.GET("/health", func(c echo.Context) error {
+		return c.String(200, "Supply service is healthy")
+	})
 
 	// Start server
 	log.Printf("Supply service starting on port %s", port)
-	if err := http.ListenAndServe(":"+port, corsHandler); err != nil {
+	if err := e.Start(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
