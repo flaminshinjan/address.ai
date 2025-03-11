@@ -1,16 +1,13 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/flaminshinjan/address.ai/pkg/common/auth"
-	"github.com/flaminshinjan/address.ai/pkg/common/response"
 	"github.com/flaminshinjan/address.ai/services/room/internal/model"
 	"github.com/flaminshinjan/address.ai/services/room/internal/service"
+	"github.com/labstack/echo/v4"
 )
 
 // RoomHandler handles HTTP requests for rooms
@@ -29,155 +26,11 @@ func NewRoomHandler(roomService *service.RoomService, bookingService *service.Bo
 	}
 }
 
-// CreateRoom handles creating a new room
-// @Summary Create a new room
-// @Description Create a new room with the provided details
-// @Tags rooms
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param room body model.Room true "Room"
-// @Success 201 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /rooms [post]
-func (h *RoomHandler) CreateRoom(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
-
-	var room model.Room
-	if err := json.NewDecoder(r.Body).Decode(&room); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
-	}
-
-	createdRoom, err := h.roomService.CreateRoom(room)
-	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
-	}
-
-	response.Created(w, "Room created successfully", createdRoom)
-}
-
-// GetRoom handles getting a room by ID
-// @Summary Get a room by ID
-// @Description Get a room by its ID
-// @Tags rooms
-// @Accept json
-// @Produce json
-// @Param id path string true "Room ID"
-// @Success 200 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /rooms/{id} [get]
-func (h *RoomHandler) GetRoom(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	room, err := h.roomService.GetRoomByID(id)
-	if err != nil {
-		response.NotFound(w, "Room not found")
-		return
-	}
-
-	response.Success(w, "Room retrieved successfully", room)
-}
-
-// UpdateRoom handles updating a room
-// @Summary Update a room
-// @Description Update a room with the provided details
-// @Tags rooms
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Room ID"
-// @Param room body model.Room true "Room"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /rooms/{id} [put]
-func (h *RoomHandler) UpdateRoom(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
-
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	var room model.Room
-	if err := json.NewDecoder(r.Body).Decode(&room); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
-	}
-
-	updatedRoom, err := h.roomService.UpdateRoom(id, room)
-	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
-	}
-
-	response.Success(w, "Room updated successfully", updatedRoom)
-}
-
-// DeleteRoom handles deleting a room
-// @Summary Delete a room
-// @Description Delete a room by its ID
-// @Tags rooms
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Room ID"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /rooms/{id} [delete]
-func (h *RoomHandler) DeleteRoom(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
-
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	if err := h.roomService.DeleteRoom(id); err != nil {
-		response.BadRequest(w, err.Error())
-		return
-	}
-
-	response.Success(w, "Room deleted successfully", nil)
-}
-
 // ListRooms handles listing all rooms
-// @Summary List all rooms
-// @Description List all rooms with pagination
-// @Tags rooms
-// @Accept json
-// @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /rooms [get]
-func (h *RoomHandler) ListRooms(w http.ResponseWriter, r *http.Request) {
+func (h *RoomHandler) ListRooms(c echo.Context) error {
 	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
+	limitStr := c.QueryParam("limit")
+	offsetStr := c.QueryParam("offset")
 
 	limit := 10 // Default limit
 	if limitStr != "" {
@@ -197,135 +50,222 @@ func (h *RoomHandler) ListRooms(w http.ResponseWriter, r *http.Request) {
 
 	rooms, err := h.roomService.ListRooms(limit, offset)
 	if err != nil {
-		response.InternalServerError(w, err)
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Failed to retrieve rooms",
+		})
 	}
 
-	response.Success(w, "Rooms retrieved successfully", rooms)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Rooms retrieved successfully",
+		"data":    rooms,
+	})
 }
 
-// ListAvailableRooms handles listing all available rooms for the given dates
-// @Summary List available rooms
-// @Description List all available rooms for the given dates with pagination
-// @Tags rooms
-// @Accept json
-// @Produce json
-// @Param start_date query string true "Start Date (YYYY-MM-DD)"
-// @Param end_date query string true "End Date (YYYY-MM-DD)"
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /rooms/available [get]
-func (h *RoomHandler) ListAvailableRooms(w http.ResponseWriter, r *http.Request) {
-	// Get query parameters
-	startDateStr := r.URL.Query().Get("start_date")
-	endDateStr := r.URL.Query().Get("end_date")
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
+// GetRoom handles getting a room by ID
+func (h *RoomHandler) GetRoom(c echo.Context) error {
+	id := c.Param("id")
 
-	// Parse dates
-	startDate, err := time.Parse("2006-01-02", startDateStr)
+	room, err := h.roomService.GetRoomByID(id)
 	if err != nil {
-		response.BadRequest(w, "Invalid start date format (YYYY-MM-DD)")
-		return
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "Room not found",
+		})
 	}
 
-	endDate, err := time.Parse("2006-01-02", endDateStr)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Room retrieved successfully",
+		"data":    room,
+	})
+}
+
+// CreateRoom handles creating a new room
+func (h *RoomHandler) CreateRoom(c echo.Context) error {
+	// Check if user is admin
+	role := c.Get("role").(string)
+	if role != "admin" {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
+	}
+
+	var room model.Room
+	if err := c.Bind(&room); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
+	}
+
+	createdRoom, err := h.roomService.CreateRoom(room)
 	if err != nil {
-		response.BadRequest(w, "Invalid end date format (YYYY-MM-DD)")
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	limit := 10 // Default limit
-	if limitStr != "" {
-		parsedLimit, err := strconv.Atoi(limitStr)
-		if err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"success": true,
+		"message": "Room created successfully",
+		"data":    createdRoom,
+	})
+}
+
+// UpdateRoom handles updating a room
+func (h *RoomHandler) UpdateRoom(c echo.Context) error {
+	// Check if user is admin
+	role := c.Get("role").(string)
+	if role != "admin" {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
 	}
 
-	offset := 0 // Default offset
-	if offsetStr != "" {
-		parsedOffset, err := strconv.Atoi(offsetStr)
-		if err == nil && parsedOffset >= 0 {
-			offset = parsedOffset
-		}
+	id := c.Param("id")
+
+	var room model.Room
+	if err := c.Bind(&room); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
-	rooms, err := h.roomService.ListAvailableRooms(startDate, endDate, limit, offset)
+	room.ID = id
+	updatedRoom, err := h.roomService.UpdateRoom(id, room)
 	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Success(w, "Available rooms retrieved successfully", rooms)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Room updated successfully",
+		"data":    updatedRoom,
+	})
+}
+
+// DeleteRoom handles deleting a room
+func (h *RoomHandler) DeleteRoom(c echo.Context) error {
+	// Check if user is admin
+	role := c.Get("role").(string)
+	if role != "admin" {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
+	}
+
+	id := c.Param("id")
+
+	if err := h.roomService.DeleteRoom(id); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Room deleted successfully",
+	})
 }
 
 // UpdateRoomStatus handles updating a room's status
-// @Summary Update room status
-// @Description Update a room's status
-// @Tags rooms
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Room ID"
-// @Param status body map[string]string true "Status"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /rooms/{id}/status [put]
-func (h *RoomHandler) UpdateRoomStatus(w http.ResponseWriter, r *http.Request) {
+func (h *RoomHandler) UpdateRoomStatus(c echo.Context) error {
 	// Check if user is admin
-	role := r.Context().Value("role").(string)
+	role := c.Get("role").(string)
 	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
 	}
 
-	vars := mux.Vars(r)
-	id := vars["id"]
+	id := c.Param("id")
 
 	var statusData map[string]string
-	if err := json.NewDecoder(r.Body).Decode(&statusData); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
+	if err := c.Bind(&statusData); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
 	status, ok := statusData["status"]
 	if !ok {
-		response.BadRequest(w, "Status is required")
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Status is required",
+		})
 	}
 
 	if err := h.roomService.UpdateRoomStatus(id, status); err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Success(w, "Room status updated successfully", nil)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Room status updated successfully",
+	})
 }
 
 // RegisterRoutes registers the routes for the room handler
-func (h *RoomHandler) RegisterRoutes(router *mux.Router) {
+func (h *RoomHandler) RegisterRoutes(g *echo.Group) {
 	// Public routes
-	router.HandleFunc("/rooms", h.ListRooms).Methods("GET")
-	router.HandleFunc("/rooms/available", h.ListAvailableRooms).Methods("GET")
-	router.HandleFunc("/rooms/{id}", h.GetRoom).Methods("GET")
+	g.GET("/rooms", h.ListRooms)
+	g.GET("/rooms/:id", h.GetRoom)
 
 	// Protected routes
-	protected := router.PathPrefix("").Subrouter()
-	protected.Use(func(next http.Handler) http.Handler {
-		return auth.Middleware(h.jwtSecret, next)
-	})
+	admin := g.Group("/admin/rooms")
+	admin.Use(h.authMiddleware)
 
-	// Admin routes
-	adminRouter := protected.PathPrefix("/rooms").Subrouter()
-	adminRouter.HandleFunc("", h.CreateRoom).Methods("POST")
-	adminRouter.HandleFunc("/{id}", h.UpdateRoom).Methods("PUT")
-	adminRouter.HandleFunc("/{id}", h.DeleteRoom).Methods("DELETE")
-	adminRouter.HandleFunc("/{id}/status", h.UpdateRoomStatus).Methods("PUT")
+	admin.POST("", h.CreateRoom)
+	admin.PUT("/:id", h.UpdateRoom)
+	admin.DELETE("/:id", h.DeleteRoom)
+	admin.PUT("/:id/status", h.UpdateRoomStatus)
+}
+
+// authMiddleware is a middleware to check if the user is authenticated
+func (h *RoomHandler) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		token := c.Request().Header.Get("Authorization")
+		if token == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Authorization token is required",
+			})
+		}
+
+		// Remove "Bearer " prefix if present
+		if len(token) > 7 && token[:7] == "Bearer " {
+			token = token[7:]
+		}
+
+		claims, err := auth.ValidateToken(token, h.jwtSecret)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Invalid or expired token",
+			})
+		}
+
+		// Set user info in context
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("role", claims.Role)
+
+		return next(c)
+	}
 }

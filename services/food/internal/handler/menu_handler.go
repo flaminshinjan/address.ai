@@ -1,28 +1,26 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/flaminshinjan/address.ai/pkg/common/auth"
-	"github.com/flaminshinjan/address.ai/pkg/common/response"
 	"github.com/flaminshinjan/address.ai/services/food/internal/model"
 	"github.com/flaminshinjan/address.ai/services/food/internal/service"
+	"github.com/labstack/echo/v4"
 )
 
 // MenuHandler handles HTTP requests for menu items
 type MenuHandler struct {
-	menuService *service.MenuService
-	jwtSecret   string
+	service   *service.MenuService
+	jwtSecret string
 }
 
 // NewMenuHandler creates a new MenuHandler
-func NewMenuHandler(menuService *service.MenuService, jwtSecret string) *MenuHandler {
+func NewMenuHandler(service *service.MenuService, jwtSecret string) *MenuHandler {
 	return &MenuHandler{
-		menuService: menuService,
-		jwtSecret:   jwtSecret,
+		service:   service,
+		jwtSecret: jwtSecret,
 	}
 }
 
@@ -39,27 +37,37 @@ func NewMenuHandler(menuService *service.MenuService, jwtSecret string) *MenuHan
 // @Failure 401 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /menu [post]
-func (h *MenuHandler) CreateMenuItem(w http.ResponseWriter, r *http.Request) {
+func (h *MenuHandler) CreateMenuItem(c echo.Context) error {
 	// Check if user is admin
-	role := r.Context().Value("role").(string)
+	role := c.Get("role").(string)
 	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
 	}
 
 	var item model.MenuItem
-	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
+	if err := c.Bind(&item); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
-	createdItem, err := h.menuService.CreateMenuItem(item)
+	createdItem, err := h.service.CreateMenuItem(item)
 	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Created(w, "Menu item created successfully", createdItem)
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"success": true,
+		"message": "Menu item created successfully",
+		"data":    createdItem,
+	})
 }
 
 // GetMenuItem handles getting a menu item by ID
@@ -73,17 +81,22 @@ func (h *MenuHandler) CreateMenuItem(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /menu/{id} [get]
-func (h *MenuHandler) GetMenuItem(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
+func (h *MenuHandler) GetMenuItem(c echo.Context) error {
+	id := c.Param("id")
 
-	item, err := h.menuService.GetMenuItemByID(id)
+	item, err := h.service.GetMenuItemByID(id)
 	if err != nil {
-		response.NotFound(w, "Menu item not found")
-		return
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "Menu item not found",
+		})
 	}
 
-	response.Success(w, "Menu item retrieved successfully", item)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Menu item retrieved successfully",
+		"data":    item,
+	})
 }
 
 // UpdateMenuItem handles updating a menu item
@@ -101,30 +114,40 @@ func (h *MenuHandler) GetMenuItem(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /menu/{id} [put]
-func (h *MenuHandler) UpdateMenuItem(w http.ResponseWriter, r *http.Request) {
+func (h *MenuHandler) UpdateMenuItem(c echo.Context) error {
 	// Check if user is admin
-	role := r.Context().Value("role").(string)
+	role := c.Get("role").(string)
 	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
 	}
 
-	vars := mux.Vars(r)
-	id := vars["id"]
+	id := c.Param("id")
 
 	var item model.MenuItem
-	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
+	if err := c.Bind(&item); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
-	updatedItem, err := h.menuService.UpdateMenuItem(id, item)
+	item.ID = id
+	updatedItem, err := h.service.UpdateMenuItem(id, item)
 	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Success(w, "Menu item updated successfully", updatedItem)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Menu item updated successfully",
+		"data":    updatedItem,
+	})
 }
 
 // DeleteMenuItem handles deleting a menu item
@@ -140,23 +163,29 @@ func (h *MenuHandler) UpdateMenuItem(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /menu/{id} [delete]
-func (h *MenuHandler) DeleteMenuItem(w http.ResponseWriter, r *http.Request) {
+func (h *MenuHandler) DeleteMenuItem(c echo.Context) error {
 	// Check if user is admin
-	role := r.Context().Value("role").(string)
+	role := c.Get("role").(string)
 	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
 	}
 
-	vars := mux.Vars(r)
-	id := vars["id"]
+	id := c.Param("id")
 
-	if err := h.menuService.DeleteMenuItem(id); err != nil {
-		response.NotFound(w, "Menu item not found")
-		return
+	if err := h.service.DeleteMenuItem(id); err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "Menu item not found",
+		})
 	}
 
-	response.Success(w, "Menu item deleted successfully", nil)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Menu item deleted successfully",
+	})
 }
 
 // ListMenuItems handles listing all menu items
@@ -170,10 +199,10 @@ func (h *MenuHandler) DeleteMenuItem(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /menu [get]
-func (h *MenuHandler) ListMenuItems(w http.ResponseWriter, r *http.Request) {
-	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
+func (h *MenuHandler) ListMenuItems(c echo.Context) error {
+	limitStr := c.QueryParam("limit")
+	offsetStr := c.QueryParam("offset")
+	category := c.QueryParam("category")
 
 	limit := 10 // Default limit
 	if limitStr != "" {
@@ -191,99 +220,27 @@ func (h *MenuHandler) ListMenuItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	items, err := h.menuService.ListMenuItems(limit, offset)
+	var items interface{}
+	var err error
+
+	if category != "" {
+		items, err = h.service.ListMenuItemsByCategory(category, limit, offset)
+	} else {
+		items, err = h.service.ListMenuItems(limit, offset)
+	}
+
 	if err != nil {
-		response.InternalServerError(w, err)
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Failed to retrieve menu items",
+		})
 	}
 
-	response.Success(w, "Menu items retrieved successfully", items)
-}
-
-// ListMenuItemsByCategory handles listing menu items by category
-// @Summary List menu items by category
-// @Description List menu items by category with pagination
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param category path string true "Category"
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /menu/category/{category} [get]
-func (h *MenuHandler) ListMenuItemsByCategory(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	category := vars["category"]
-
-	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-
-	limit := 10 // Default limit
-	if limitStr != "" {
-		parsedLimit, err := strconv.Atoi(limitStr)
-		if err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
-
-	offset := 0 // Default offset
-	if offsetStr != "" {
-		parsedOffset, err := strconv.Atoi(offsetStr)
-		if err == nil && parsedOffset >= 0 {
-			offset = parsedOffset
-		}
-	}
-
-	items, err := h.menuService.ListMenuItemsByCategory(category, limit, offset)
-	if err != nil {
-		response.InternalServerError(w, err)
-		return
-	}
-
-	response.Success(w, "Menu items retrieved successfully", items)
-}
-
-// ListAvailableMenuItems handles listing all available menu items
-// @Summary List all available menu items
-// @Description List all available menu items with pagination
-// @Tags menu
-// @Accept json
-// @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /menu/available [get]
-func (h *MenuHandler) ListAvailableMenuItems(w http.ResponseWriter, r *http.Request) {
-	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-
-	limit := 10 // Default limit
-	if limitStr != "" {
-		parsedLimit, err := strconv.Atoi(limitStr)
-		if err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
-
-	offset := 0 // Default offset
-	if offsetStr != "" {
-		parsedOffset, err := strconv.Atoi(offsetStr)
-		if err == nil && parsedOffset >= 0 {
-			offset = parsedOffset
-		}
-	}
-
-	items, err := h.menuService.ListAvailableMenuItems(limit, offset)
-	if err != nil {
-		response.InternalServerError(w, err)
-		return
-	}
-
-	response.Success(w, "Available menu items retrieved successfully", items)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Menu items retrieved successfully",
+		"data":    items,
+	})
 }
 
 // ListCategories handles listing all menu categories
@@ -295,45 +252,70 @@ func (h *MenuHandler) ListAvailableMenuItems(w http.ResponseWriter, r *http.Requ
 // @Success 200 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /menu/categories [get]
-func (h *MenuHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.menuService.ListCategories()
+func (h *MenuHandler) ListCategories(c echo.Context) error {
+	categories, err := h.service.ListCategories()
 	if err != nil {
-		response.InternalServerError(w, err)
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Failed to retrieve categories",
+		})
 	}
 
-	response.Success(w, "Categories retrieved successfully", categories)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Categories retrieved successfully",
+		"data":    categories,
+	})
 }
 
 // RegisterRoutes registers the routes for the menu handler
-func (h *MenuHandler) RegisterRoutes(router *mux.Router) {
+func (h *MenuHandler) RegisterRoutes(g *echo.Group) {
+	// Menu routes
+	menu := g.Group("/menu")
+
 	// Public routes
-	router.HandleFunc("/menu", h.ListMenuItems).Methods("GET")
-	router.HandleFunc("/menu/available", h.ListAvailableMenuItems).Methods("GET")
-	router.HandleFunc("/menu/categories", h.ListCategories).Methods("GET")
-	router.HandleFunc("/menu/category/{category}", h.ListMenuItemsByCategory).Methods("GET")
-	router.HandleFunc("/menu/{id}", h.GetMenuItem).Methods("GET")
+	menu.GET("", h.ListMenuItems)
+	menu.GET("/categories", h.ListCategories)
+	menu.GET("/:id", h.GetMenuItem)
 
 	// Protected routes
-	protected := router.PathPrefix("").Subrouter()
-	protected.Use(func(next http.Handler) http.Handler {
-		return auth.Middleware(h.jwtSecret, next)
-	})
+	admin := menu.Group("")
+	admin.Use(h.authMiddleware)
 
-	// Admin routes
-	adminRouter := protected.PathPrefix("/menu").Subrouter()
-	adminRouter.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			role := r.Context().Value("role").(string)
-			if role != "admin" {
-				response.Forbidden(w, "Admin access required")
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
+	admin.POST("", h.CreateMenuItem)
+	admin.PUT("/:id", h.UpdateMenuItem)
+	admin.DELETE("/:id", h.DeleteMenuItem)
+}
 
-	adminRouter.HandleFunc("", h.CreateMenuItem).Methods("POST")
-	adminRouter.HandleFunc("/{id}", h.UpdateMenuItem).Methods("PUT")
-	adminRouter.HandleFunc("/{id}", h.DeleteMenuItem).Methods("DELETE")
+// authMiddleware is a middleware to check if the user is authenticated
+func (h *MenuHandler) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		token := c.Request().Header.Get("Authorization")
+		if token == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Authorization token is required",
+			})
+		}
+
+		// Remove "Bearer " prefix if present
+		if len(token) > 7 && token[:7] == "Bearer " {
+			token = token[7:]
+		}
+
+		claims, err := auth.ValidateToken(token, h.jwtSecret)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Invalid or expired token",
+			})
+		}
+
+		// Set user info in context
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("role", claims.Role)
+
+		return next(c)
+	}
 }

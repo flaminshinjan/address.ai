@@ -1,213 +1,129 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/flaminshinjan/address.ai/pkg/common/auth"
-	"github.com/flaminshinjan/address.ai/pkg/common/response"
 	"github.com/flaminshinjan/address.ai/services/room/internal/model"
 	"github.com/flaminshinjan/address.ai/services/room/internal/service"
+	"github.com/labstack/echo/v4"
 )
 
 // BookingHandler handles HTTP requests for bookings
 type BookingHandler struct {
-	bookingService *service.BookingService
-	jwtSecret      string
+	service   *service.BookingService
+	jwtSecret string
 }
 
 // NewBookingHandler creates a new BookingHandler
-func NewBookingHandler(bookingService *service.BookingService, jwtSecret string) *BookingHandler {
+func NewBookingHandler(service *service.BookingService, jwtSecret string) *BookingHandler {
 	return &BookingHandler{
-		bookingService: bookingService,
-		jwtSecret:      jwtSecret,
+		service:   service,
+		jwtSecret: jwtSecret,
 	}
 }
 
 // CreateBooking handles creating a new booking
-// @Summary Create a new booking
-// @Description Create a new booking with the provided details
-// @Tags bookings
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param booking body model.BookingRequest true "Booking Request"
-// @Success 201 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /bookings [post]
-func (h *BookingHandler) CreateBooking(w http.ResponseWriter, r *http.Request) {
+func (h *BookingHandler) CreateBooking(c echo.Context) error {
 	// Get user ID from context
-	userID := r.Context().Value("user_id").(string)
+	userID := c.Get("user_id").(string)
 
 	var req model.BookingRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.BadRequest(w, "Invalid request payload")
-		return
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Invalid request payload",
+		})
 	}
 
-	booking, err := h.bookingService.CreateBooking(userID, req)
+	booking, err := h.service.CreateBooking(userID, req)
 	if err != nil {
-		response.BadRequest(w, err.Error())
-		return
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Created(w, "Booking created successfully", booking)
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"success": true,
+		"message": "Booking created successfully",
+		"data":    booking,
+	})
 }
 
 // GetBooking handles getting a booking by ID
-// @Summary Get a booking by ID
-// @Description Get a booking by its ID
-// @Tags bookings
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Booking ID"
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /bookings/{id} [get]
-func (h *BookingHandler) GetBooking(w http.ResponseWriter, r *http.Request) {
-	// Get user ID and role from context
-	userID := r.Context().Value("user_id").(string)
-	role := r.Context().Value("role").(string)
+func (h *BookingHandler) GetBooking(c echo.Context) error {
+	id := c.Param("id")
+	userID := c.Get("user_id").(string)
+	role := c.Get("role").(string)
 
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	booking, err := h.bookingService.GetBookingByID(id)
+	booking, err := h.service.GetBookingByID(id)
 	if err != nil {
-		response.NotFound(w, "Booking not found")
-		return
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "Booking not found",
+		})
 	}
 
 	// Check if user is authorized to view this booking
 	if booking.UserID != userID && role != "admin" {
-		response.Forbidden(w, "You are not authorized to view this booking")
-		return
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "You are not authorized to view this booking",
+		})
 	}
 
-	response.Success(w, "Booking retrieved successfully", booking)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Booking retrieved successfully",
+		"data":    booking,
+	})
 }
 
-// GetUserBookings handles getting bookings for the authenticated user
-// @Summary Get user bookings
-// @Description Get bookings for the authenticated user
-// @Tags bookings
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /bookings/user [get]
-func (h *BookingHandler) GetUserBookings(w http.ResponseWriter, r *http.Request) {
-	// Get user ID from context
-	userID := r.Context().Value("user_id").(string)
+// CancelBooking handles canceling a booking
+func (h *BookingHandler) CancelBooking(c echo.Context) error {
+	id := c.Param("id")
+	userID := c.Get("user_id").(string)
+	role := c.Get("role").(string)
 
-	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
-
-	limit := 10 // Default limit
-	if limitStr != "" {
-		parsedLimit, err := strconv.Atoi(limitStr)
-		if err == nil && parsedLimit > 0 {
-			limit = parsedLimit
-		}
-	}
-
-	offset := 0 // Default offset
-	if offsetStr != "" {
-		parsedOffset, err := strconv.Atoi(offsetStr)
-		if err == nil && parsedOffset >= 0 {
-			offset = parsedOffset
-		}
-	}
-
-	bookings, err := h.bookingService.GetBookingsByUserID(userID, limit, offset)
+	// Check if booking exists and user is authorized
+	existingBooking, err := h.service.GetBookingByID(id)
 	if err != nil {
-		response.InternalServerError(w, err)
-		return
-	}
-
-	response.Success(w, "Bookings retrieved successfully", bookings)
-}
-
-// CancelBooking handles cancelling a booking
-// @Summary Cancel a booking
-// @Description Cancel a booking by its ID
-// @Tags bookings
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path string true "Booking ID"
-// @Success 200 {object} response.Response
-// @Failure 400 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 404 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /bookings/{id}/cancel [put]
-func (h *BookingHandler) CancelBooking(w http.ResponseWriter, r *http.Request) {
-	// Get user ID and role from context
-	userID := r.Context().Value("user_id").(string)
-	role := r.Context().Value("role").(string)
-
-	vars := mux.Vars(r)
-	id := vars["id"]
-
-	// Check if booking exists and belongs to the user
-	booking, err := h.bookingService.GetBookingByID(id)
-	if err != nil {
-		response.NotFound(w, "Booking not found")
-		return
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "Booking not found",
+		})
 	}
 
 	// Check if user is authorized to cancel this booking
-	if booking.UserID != userID && role != "admin" {
-		response.Forbidden(w, "You are not authorized to cancel this booking")
-		return
+	if existingBooking.UserID != userID && role != "admin" {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "You are not authorized to cancel this booking",
+		})
 	}
 
-	if err := h.bookingService.CancelBooking(id); err != nil {
-		response.BadRequest(w, err.Error())
-		return
+	if err := h.service.CancelBooking(id); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
 	}
 
-	response.Success(w, "Booking cancelled successfully", nil)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Booking canceled successfully",
+	})
 }
 
-// ListBookings handles listing all bookings (admin only)
-// @Summary List all bookings
-// @Description List all bookings with pagination (admin only)
-// @Tags bookings
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Success 200 {object} response.Response
-// @Failure 401 {object} response.Response
-// @Failure 403 {object} response.Response
-// @Failure 500 {object} response.Response
-// @Router /bookings [get]
-func (h *BookingHandler) ListBookings(w http.ResponseWriter, r *http.Request) {
-	// Check if user is admin
-	role := r.Context().Value("role").(string)
-	if role != "admin" {
-		response.Forbidden(w, "Admin access required")
-		return
-	}
+// ListUserBookings handles listing all bookings for a user
+func (h *BookingHandler) ListUserBookings(c echo.Context) error {
+	userID := c.Get("user_id").(string)
 
 	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	offsetStr := r.URL.Query().Get("offset")
+	limitStr := c.QueryParam("limit")
+	offsetStr := c.QueryParam("offset")
 
 	limit := 10 // Default limit
 	if limitStr != "" {
@@ -225,40 +141,126 @@ func (h *BookingHandler) ListBookings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	bookings, err := h.bookingService.ListBookings(limit, offset)
+	bookings, err := h.service.GetBookingsByUserID(userID, limit, offset)
 	if err != nil {
-		response.InternalServerError(w, err)
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Failed to retrieve bookings",
+		})
 	}
 
-	response.Success(w, "Bookings retrieved successfully", bookings)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Bookings retrieved successfully",
+		"data":    bookings,
+	})
+}
+
+// ListAllBookings handles listing all bookings (admin only)
+func (h *BookingHandler) ListAllBookings(c echo.Context) error {
+	role := c.Get("role").(string)
+	if role != "admin" {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Admin access required",
+		})
+	}
+
+	// Get query parameters
+	limitStr := c.QueryParam("limit")
+	offsetStr := c.QueryParam("offset")
+
+	limit := 10 // Default limit
+	if limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err == nil && parsedLimit > 0 {
+			limit = parsedLimit
+		}
+	}
+
+	offset := 0 // Default offset
+	if offsetStr != "" {
+		parsedOffset, err := strconv.Atoi(offsetStr)
+		if err == nil && parsedOffset >= 0 {
+			offset = parsedOffset
+		}
+	}
+
+	bookings, err := h.service.ListBookings(limit, offset)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Failed to retrieve bookings",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Bookings retrieved successfully",
+		"data":    bookings,
+	})
 }
 
 // RegisterRoutes registers the routes for the booking handler
-func (h *BookingHandler) RegisterRoutes(router *mux.Router) {
+func (h *BookingHandler) RegisterRoutes(g *echo.Group) {
 	// Protected routes
-	protected := router.PathPrefix("/bookings").Subrouter()
-	protected.Use(func(next http.Handler) http.Handler {
-		return auth.Middleware(h.jwtSecret, next)
-	})
+	bookings := g.Group("/bookings")
+	bookings.Use(h.authMiddleware)
 
-	protected.HandleFunc("", h.CreateBooking).Methods("POST")
-	protected.HandleFunc("/user", h.GetUserBookings).Methods("GET")
-	protected.HandleFunc("/{id}", h.GetBooking).Methods("GET")
-	protected.HandleFunc("/{id}/cancel", h.CancelBooking).Methods("PUT")
+	bookings.POST("", h.CreateBooking)
+	bookings.GET("/my", h.ListUserBookings)
+	bookings.GET("/:id", h.GetBooking)
+	bookings.DELETE("/:id", h.CancelBooking)
 
 	// Admin routes
-	adminRouter := protected.PathPrefix("").Subrouter()
-	adminRouter.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			role := r.Context().Value("role").(string)
-			if role != "admin" {
-				response.Forbidden(w, "Admin access required")
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
+	admin := g.Group("/admin/bookings")
+	admin.Use(h.authMiddleware, h.adminMiddleware)
+	admin.GET("", h.ListAllBookings)
+}
 
-	adminRouter.HandleFunc("", h.ListBookings).Methods("GET")
+// authMiddleware is a middleware to check if the user is authenticated
+func (h *BookingHandler) authMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		token := c.Request().Header.Get("Authorization")
+		if token == "" {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Authorization token is required",
+			})
+		}
+
+		// Remove "Bearer " prefix if present
+		if len(token) > 7 && token[:7] == "Bearer " {
+			token = token[7:]
+		}
+
+		claims, err := auth.ValidateToken(token, h.jwtSecret)
+		if err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]interface{}{
+				"success": false,
+				"error":   "Invalid or expired token",
+			})
+		}
+
+		// Set user info in context
+		c.Set("user_id", claims.UserID)
+		c.Set("username", claims.Username)
+		c.Set("role", claims.Role)
+
+		return next(c)
+	}
+}
+
+// adminMiddleware is a middleware to check if the user is an admin
+func (h *BookingHandler) adminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		role := c.Get("role").(string)
+		if role != "admin" {
+			return c.JSON(http.StatusForbidden, map[string]interface{}{
+				"success": false,
+				"error":   "Admin access required",
+			})
+		}
+		return next(c)
+	}
 }

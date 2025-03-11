@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"github.com/gorilla/mux"
 	"github.com/flaminshinjan/address.ai/services/supply/internal/service"
+	"github.com/gorilla/mux"
 )
 
 // Handler is the main handler for the supply microservice
