@@ -1,6 +1,6 @@
 module github.com/flaminshinjan/address.ai
 
-go 1.18
+go 1.23
 
 require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible

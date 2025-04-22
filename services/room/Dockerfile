@@ -1,15 +1,16 @@
-FROM golang:1.20-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
-# Copy go.mod and go.sum
+# Copy go.mod and go.sum from root
 COPY go.mod go.sum ./
 
 # Download dependencies
 RUN go mod download
 
 # Copy the source code
-COPY . .
+COPY services/room/ ./services/room/
+COPY pkg/ ./pkg/
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o room-service ./services/room/cmd

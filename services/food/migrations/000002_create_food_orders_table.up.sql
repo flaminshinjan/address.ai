@@ -1,23 +1,21 @@
 CREATE TABLE IF NOT EXISTS food_orders (
-    id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL,
-    room_id VARCHAR(36),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id VARCHAR(36) REFERENCES users(id),
+    room_id UUID REFERENCES rooms(id),
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    total_price DECIMAL(10, 2) NOT NULL,
-    notes TEXT,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL
+    total_amount DECIMAL(10,2) NOT NULL,
+    special_instructions TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS order_items (
-    id VARCHAR(36) PRIMARY KEY,
-    order_id VARCHAR(36) NOT NULL,
-    menu_item_id VARCHAR(36) NOT NULL,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID REFERENCES food_orders(id),
+    menu_item_id UUID REFERENCES menu_items(id),
     quantity INT NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
+    unit_price DECIMAL(10,2) NOT NULL,
     notes TEXT,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    FOREIGN KEY (order_id) REFERENCES food_orders(id) ON DELETE CASCADE,
-    FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 ); 

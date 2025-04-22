@@ -5,11 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/flaminshinjan/address.ai/pkg/common/db"
-	"github.com/flaminshinjan/address.ai/pkg/common/logger"
 	"github.com/flaminshinjan/address.ai/services/user/internal/handler"
 	"github.com/flaminshinjan/address.ai/services/user/internal/repository"
 	"github.com/flaminshinjan/address.ai/services/user/internal/service"
+	"github.com/flaminshinjan/address.ai/services/user/pkg/common/db"
+	"github.com/flaminshinjan/address.ai/services/user/pkg/common/logger"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"

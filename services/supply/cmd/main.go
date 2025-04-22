@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/flaminshinjan/address.ai/pkg/common/db"
 	"github.com/flaminshinjan/address.ai/pkg/common/logger"
@@ -50,7 +49,7 @@ func main() {
 	defer database.Close()
 
 	// Run migrations
-	migrationsPath := filepath.Join("services", "supply", "migrations")
+	migrationsPath := "/app/migrations"
 	if err := db.RunMigrations(database, migrationsPath); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}

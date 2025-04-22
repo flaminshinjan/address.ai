@@ -4,18 +4,14 @@ services:
   # User Service
   user-service:
     build:
-      context: ./services/user
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/user/Dockerfile
     ports:
-      - "8081:8081"
+      - "${USER_SERVICE_PORT}:${USER_SERVICE_PORT}"
     environment:
-      - DB_HOST=user-db
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=user_db
-      - JWT_SECRET=your_jwt_secret_key
-      - SERVICE_PORT=8081
+      - DATABASE_URL=postgres://${USER_DB_USER}:${USER_DB_PASSWORD}@${USER_DB_HOST}:${USER_DB_PORT}/${USER_DB_NAME}?sslmode=disable
+      - JWT_SECRET=${USER_JWT_SECRET}
+      - SERVICE_PORT=${USER_SERVICE_PORT}
     depends_on:
       - user-db
     networks:
@@ -24,9 +20,9 @@ services:
   user-db:
     image: postgres:14
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=user_db
+      - POSTGRES_USER=${USER_DB_USER}
+      - POSTGRES_PASSWORD=${USER_DB_PASSWORD}
+      - POSTGRES_DB=${USER_DB_NAME}
     volumes:
       - user-db-data:/var/lib/postgresql/data
     networks:
@@ -35,19 +31,15 @@ services:
   # Room Management Service
   room-service:
     build:
-      context: ./services/room
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/room/Dockerfile
     ports:
-      - "8082:8082"
+      - "${ROOM_SERVICE_PORT}:${ROOM_SERVICE_PORT}"
     environment:
-      - DB_HOST=room-db
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=room_db
-      - JWT_SECRET=your_jwt_secret_key
-      - SERVICE_PORT=8082
-      - USER_SERVICE_URL=http://user-service:8081
+      - DATABASE_URL=postgres://${ROOM_DB_USER}:${ROOM_DB_PASSWORD}@${ROOM_DB_HOST}:${ROOM_DB_PORT}/${ROOM_DB_NAME}?sslmode=disable
+      - JWT_SECRET=${ROOM_JWT_SECRET}
+      - SERVICE_PORT=${ROOM_SERVICE_PORT}
+      - USER_SERVICE_URL=${ROOM_USER_SERVICE_URL}
     depends_on:
       - room-db
       - user-service
@@ -57,9 +49,9 @@ services:
   room-db:
     image: postgres:14
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=room_db
+      - POSTGRES_USER=${ROOM_DB_USER}
+      - POSTGRES_PASSWORD=${ROOM_DB_PASSWORD}
+      - POSTGRES_DB=${ROOM_DB_NAME}
     volumes:
       - room-db-data:/var/lib/postgresql/data
     networks:
@@ -68,19 +60,15 @@ services:
   # Food Management Service
   food-service:
     build:
-      context: ./services/food
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/food/Dockerfile
     ports:
-      - "8083:8083"
+      - "${FOOD_SERVICE_PORT}:${FOOD_SERVICE_PORT}"
     environment:
-      - DB_HOST=food-db
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=food_db
-      - JWT_SECRET=your_jwt_secret_key
-      - SERVICE_PORT=8083
-      - USER_SERVICE_URL=http://user-service:8081
+      - DATABASE_URL=postgres://${FOOD_DB_USER}:${FOOD_DB_PASSWORD}@${FOOD_DB_HOST}:${FOOD_DB_PORT}/${FOOD_DB_NAME}?sslmode=disable
+      - JWT_SECRET=${FOOD_JWT_SECRET}
+      - SERVICE_PORT=${FOOD_SERVICE_PORT}
+      - USER_SERVICE_URL=${FOOD_USER_SERVICE_URL}
     depends_on:
       - food-db
       - user-service
@@ -90,9 +78,9 @@ services:
   food-db:
     image: postgres:14
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=food_db
+      - POSTGRES_USER=${FOOD_DB_USER}
+      - POSTGRES_PASSWORD=${FOOD_DB_PASSWORD}
+      - POSTGRES_DB=${FOOD_DB_NAME}
     volumes:
       - food-db-data:/var/lib/postgresql/data
     networks:
@@ -101,19 +89,15 @@ services:
   # Supply Chain Service
   supply-service:
     build:
-      context: ./services/supply
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/supply/Dockerfile
     ports:
-      - "8084:8084"
+      - "${SUPPLY_SERVICE_PORT}:${SUPPLY_SERVICE_PORT}"
     environment:
-      - DB_HOST=supply-db
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=supply_db
-      - JWT_SECRET=your_jwt_secret_key
-      - SERVICE_PORT=8084
-      - USER_SERVICE_URL=http://user-service:8081
+      - DATABASE_URL=postgres://${SUPPLY_DB_USER}:${SUPPLY_DB_PASSWORD}@${SUPPLY_DB_HOST}:${SUPPLY_DB_PORT}/${SUPPLY_DB_NAME}?sslmode=disable
+      - JWT_SECRET=${SUPPLY_JWT_SECRET}
+      - SERVICE_PORT=${SUPPLY_SERVICE_PORT}
+      - USER_SERVICE_URL=${SUPPLY_USER_SERVICE_URL}
     depends_on:
       - supply-db
       - user-service
@@ -123,9 +107,9 @@ services:
   supply-db:
     image: postgres:14
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=supply_db
+      - POSTGRES_USER=${SUPPLY_DB_USER}
+      - POSTGRES_PASSWORD=${SUPPLY_DB_PASSWORD}
+      - POSTGRES_DB=${SUPPLY_DB_NAME}
     volumes:
       - supply-db-data:/var/lib/postgresql/data
     networks:

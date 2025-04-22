@@ -22,4 +22,18 @@ VALUES (
     'admin',
     NOW(),
     NOW()
+) ON CONFLICT DO NOTHING;
+
+-- Create test user with password 'test123'
+INSERT INTO users (id, username, email, password, first_name, last_name, role, created_at, updated_at)
+VALUES (
+    'a1eebc99-9c0b-4ef8-bb6d-6bb9bd380a12',
+    'testuser',
+    'test@hotel.com',
+    '$2a$10$1/dXSLDDyI1bJ9X8/2HE9eF.fEqBQeJtjlY7y99PGR8tEbGi1QpLm', -- hashed 'test123'
+    'Test',
+    'User',
+    'guest',
+    NOW(),
+    NOW()
 ) ON CONFLICT DO NOTHING; 
